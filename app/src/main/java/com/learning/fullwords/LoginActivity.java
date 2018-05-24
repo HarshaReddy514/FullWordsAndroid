@@ -73,7 +73,7 @@ public class LoginActivity extends AppCompatActivity implements GoogleApiClient.
                 if(isConnected){
 
                     Intent lGoogleBrowserIntent = new Intent("android.intent.action.VIEW");
-                    lGoogleBrowserIntent.setData(Uri.parse("https://access.anywhereworks.com/o/oauth2/auth?response_type=code&client_id=29354-cf1ea9b7f06d4f002c7c6f04e2bef92d&redirect_uri=https://fullwordsandroid.aw.com/&scope=awapis.identity,awapis.users.read&access_type=offline"));
+                    lGoogleBrowserIntent.setData(Uri.parse("https://access.anywhereworks.com/o/oauth2/auth?response_type=code&client_id=29354-cf1ea9b7f06d4f002c7c6f04e2bef92d&redirect_uri=https://fullwordsandroid.anywhere.com/&scope=awapis.identity awapis.users.read&access_type=offline"));
                     startActivity(lGoogleBrowserIntent);
                     finish();
 
@@ -123,7 +123,7 @@ public class LoginActivity extends AppCompatActivity implements GoogleApiClient.
 
         protected Boolean doInBackground(String...pCode) {
             try {
-                String lHttpRequestBody = "client_id=29354-cf1ea9b7f06d4f002c7c6f04e2bef92d&client_secret=O1bj1ciZqJSXOUi6EtNLBiq19YRdHC2TIzDp6VdO&redirect_uri=https://fullwordsandroid.aw.com/&code=" + pCode[0] + "&grant_type=authorization_code";
+                String lHttpRequestBody = "client_id=29354-cf1ea9b7f06d4f002c7c6f04e2bef92d&client_secret=O1bj1ciZqJSXOUi6EtNLBiq19YRdHC2TIzDp6VdO&redirect_uri=https://fullwordsandroid.anywhere.com/&code=" + pCode[0] + "&grant_type=authorization_code";
                 HashMap < String, String > lHttpHeader = new HashMap();
                 lHttpHeader.put("Content-Type", "application/x-www-form-urlencoded");
                 String lAccessTokenRespponse = HttpConnection.getHttpResponse("https://access.anywhereworks.com/o/oauth2/v1/token", "POST", lHttpRequestBody, lHttpHeader);
