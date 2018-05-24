@@ -168,7 +168,15 @@ public class LoginActivity extends AppCompatActivity implements GoogleApiClient.
             }
         }
 
-        protected void onPostExecute() {
+        protected void onPostExecute(Boolean pIsErrorOccurred) {
+            super.onPostExecute(Boolean.valueOf(!pIsErrorOccurred.booleanValue()));
+            this.mProgressDialog.dismiss();
+            if (pIsErrorOccurred.booleanValue()) {
+                LoginActivity.this.getSharedPreferences("shared_preference", 0).edit().putString("user_id", this.mUserID).putString("user_name", this.mUserName).putString("email", this.mEmailID).putString("user_image", this.mImageID).putString("refresh_token", this.mRefreshToken).putBoolean("isUserLoggedIn", true).commit();
+//                LoginActivity.this.startActivity(new Intent(LoginActivity.this, HomeScreenActivity.class));
+//                LoginActivity.this.finish();
+                return;
+            }
             this.mProgressDialog.dismiss();
         }
     }
