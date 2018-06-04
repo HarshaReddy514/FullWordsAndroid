@@ -1,9 +1,11 @@
 package com.learning.fullwords;
 
 import android.accounts.Account;
+import android.accounts.AccountManager;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -17,11 +19,14 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.fullauth.api.enums.OauthAccessType;
+import com.fullauth.api.enums.OauthExpiryType;
+import com.fullauth.api.exception.TokenResponseException;
 import com.fullauth.api.model.oauth.OauthAccessToken;
 import com.fullauth.api.service.FullAuthOauthService;
 import com.google.android.gms.auth.GoogleAuthException;
 import com.google.android.gms.auth.GoogleAuthUtil;
 import com.google.android.gms.auth.UserRecoverableAuthException;
+import com.google.android.gms.common.AccountPicker;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 
@@ -40,7 +45,7 @@ import javax.net.ssl.HttpsURLConnection;
 
 import helper.HttpConnection;
 
-public class LoginActivity extends AppCompatActivity implements GoogleApiClient.OnConnectionFailedListener{
+public class LoginActivity extends AppCompatActivity{
 
     Button loginBtn;
 
@@ -49,6 +54,8 @@ public class LoginActivity extends AppCompatActivity implements GoogleApiClient.
     private int REQ_CODE = 101;
     private String mToken;
     boolean isConnected = false;
+    SharedPreferences sharedPreferences;
+    SharedPreferences.Editor sharedPrefEditor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,6 +63,19 @@ public class LoginActivity extends AppCompatActivity implements GoogleApiClient.
         setContentView(R.layout.activity_login);
 
         loginBtn = findViewById(R.id.login);
+        sharedPreferences = getSharedPreferences(CommonUtils.PREF,Context.MODE_PRIVATE);
+        String name = sharedPreferences.getString(CommonUtils.EMAIL,"");
+        Log.d("EmailPrefLogin",name);
+        if(sharedPreferences != null){
+            if(name != null && !"".equalsIgnoreCase(name)) {
+                //land to main activity
+                Intent lIntent = new Intent(LoginActivity.this, HomeActivity.class);
+                lIntent.putExtra(CommonUtils.ACCESS_TOKEN, getSharedPreferences(CommonUtils.PREF,Context.MODE_PRIVATE).getString(CommonUtils.ACCESS_TOKEN,""));
+                lIntent.putExtra(CommonUtils.EMAIL,getSharedPreferences(CommonUtils.PREF,Context.MODE_PRIVATE).getString(CommonUtils.EMAIL,""));
+                startActivity(lIntent);
+                finish();
+            }
+        }
         mProgressDialog = new ProgressDialog(this, R.style.Theme_AppCompat_Dialog);
         mProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         mProgressDialog.setCancelable(false);
@@ -71,12 +91,13 @@ public class LoginActivity extends AppCompatActivity implements GoogleApiClient.
             @Override
             public void onClick(View v) {
                 if(isConnected){
+                    mProgressDialog.show();
+                    Intent lGoogleAccountIntent= AccountPicker.newChooseAccountIntent(null, null, new String[]{"com.google"}, false, null, null, null, null);
+                    lGoogleAccountIntent.putExtra("overrideTheme", 1);
+                    lGoogleAccountIntent.putExtra("overrideCustomTheme", 0);
 
-                    Intent lGoogleBrowserIntent = new Intent("android.intent.action.VIEW");
-                    lGoogleBrowserIntent.setData(Uri.parse("https://access.anywhereworks.com/o/oauth2/auth?response_type=code&client_id=29354-cf1ea9b7f06d4f002c7c6f04e2bef92d&redirect_uri=https://fullwordsandroid.aw.com/&scope=awapis.identity,awapis.users.read&access_type=offline"));
-                    startActivity(lGoogleBrowserIntent);
-                    finish();
-
+                    startActivityForResult(lGoogleAccountIntent, REQ_CODE);
+                    Log.d(TAG, "googleSignIn: ");
                 } else{
                     Toast.makeText(getApplicationContext(),"Check your internet connection", Toast.LENGTH_LONG).show();
                 }
@@ -84,92 +105,101 @@ public class LoginActivity extends AppCompatActivity implements GoogleApiClient.
         });
     }
 
-    protected void onResume() {
-        super.onResume();
-        Uri lUri = getIntent().getData();
-        if (lUri != null && lUri.toString().contains("code")) {
-            Log.d(TAG, "onResume: code - " + lUri.getQueryParameter("code"));
-            new FullAccessAsyncTask().execute(new String[] {
-                    lUri.getQueryParameter("code")
-            });
-        }
-        Log.d(TAG, "onResume: " + getIntent().getData());
-    }
-
     @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+    protected void onActivityResult(int pRequestCode, int pResultCode, Intent pIntent) {
+        super.onActivityResult(pRequestCode, pResultCode, pIntent);
 
-    }
-
-    class FullAccessAsyncTask extends AsyncTask<String, Void, Boolean> {
-        String mAccessToken;
-        String mEmailID;
-        String mImageID;
-        ProgressDialog mProgressDialog;
-        String mRefreshToken;
-        String mUserID;
-        String mUserName;
-
-        FullAccessAsyncTask() {}
-
-        protected void onPreExecute() {
-            super.onPreExecute();
-            this.mProgressDialog = new ProgressDialog(LoginActivity.this, R.style.Theme_AppCompat);
-            this.mProgressDialog.setProgressStyle(0);
-            this.mProgressDialog.setMessage("Signing in");
-            this.mProgressDialog.setCancelable(false);
-            this.mProgressDialog.show();
-        }
-
-        protected Boolean doInBackground(String...pCode) {
-            try {
-                String lHttpRequestBody = "client_id=29354-cf1ea9b7f06d4f002c7c6f04e2bef92d&client_secret=O1bj1ciZqJSXOUi6EtNLBiq19YRdHC2TIzDp6VdO&redirect_uri=https://fullwordsandroid.aw.com/&code=" + pCode[0] + "&grant_type=authorization_code";
-                HashMap < String, String > lHttpHeader = new HashMap();
-                lHttpHeader.put("Content-Type", "application/x-www-form-urlencoded");
-                String lAccessTokenRespponse = HttpConnection.getHttpResponse("https://access.anywhereworks.com/o/oauth2/v1/token", "POST", lHttpRequestBody, lHttpHeader);
-                JSONObject lJsonObject = new JSONObject(lAccessTokenRespponse);
-                this.mAccessToken = lJsonObject.get("access").toString();
-                this.mRefreshToken = lJsonObject.get("refresh_token").toString();
-                int lExpriresTime = ((Integer) lJsonObject.get("expires_in")).intValue();
-                LoginActivity.this.getSharedPreferences("shared_preference", 0).edit().putString("access_token", mAccessToken).commit();
-                Log.d(LoginActivity.TAG, "doInBackground: accessToken response " + lAccessTokenRespponse);
-                Log.d(LoginActivity.TAG, "doInBackground: accessToken " + this.mAccessToken);
-                Log.d(LoginActivity.TAG, "doInBackground: RefreshToken " + this.mRefreshToken);
-                Log.d(LoginActivity.TAG, "doInBackground: expireTime" + lExpriresTime);
-                HashMap<String, String> lHttpHeader2 = new HashMap<>();
-                lHttpHeader2.put("Content-Type", "application/json");
-                lHttpHeader2.put("Authorization", "BEARER " + this.mAccessToken);
-                String lMyChallengeDetailsResponse = "";
-                lMyChallengeDetailsResponse = HttpConnection.getHttpResponse("https://api.anywhereworks.com/api/v1/user/me", "GET", "nobody", lHttpHeader2);
-                if (lMyChallengeDetailsResponse != null) {
-                    JSONObject lMyChallengeJson = new JSONObject(lMyChallengeDetailsResponse);
-                    if (!((Boolean) lMyChallengeJson.get("ok")).booleanValue()) {
-                        return Boolean.valueOf(false);
-                    }
-                    JSONObject lUserDeatilsJSon = lMyChallengeJson.getJSONObject("data").getJSONObject("user");
-                    this.mUserID = lUserDeatilsJSon.getString("id");
-                    Log.d(LoginActivity.TAG, "doInBackground: user id " + this.mUserID);
-                    if (lUserDeatilsJSon.has("lastName")) {
-                        this.mUserName = lUserDeatilsJSon.getString("firstName") + " " + lUserDeatilsJSon.getString("lastName");
-                    } else {
-                        this.mUserName = lUserDeatilsJSon.getString("firstName");
-                    }
-                    this.mEmailID = lUserDeatilsJSon.getString("login");
-                    this.mImageID = lUserDeatilsJSon.getString("photoId");
-                    LoginActivity.this.getSharedPreferences("shared_preference", 0).edit().putString("account_id", lUserDeatilsJSon.getString("accountId")).commit();
-                    Log.d(LoginActivity.TAG, "doInBackground: id " + this.mUserID + " name  " + this.mUserName + " email " + this.mEmailID + " photo id " + this.mImageID);
-                    Log.d(LoginActivity.TAG, "doInBackground: my challenge Details" + lMyChallengeDetailsResponse);
-                }
-                return Boolean.valueOf(true);
-            } catch (Exception e) {
-                e.printStackTrace();
-                Log.d(LoginActivity.TAG, "doInBackground: json exception");
-                return false;
+        if (pRequestCode == REQ_CODE) {
+            mProgressDialog.cancel();
+            Log.d(TAG, "onActivityResult:  google signin");
+            if (pIntent != null) {
+                String lUserEmail = pIntent.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
+                String lAccontType = pIntent.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);
+                Log.d(TAG, "onActivityResult: email " + lUserEmail + " account type " + lAccontType);
+                sharedPrefEditor = sharedPreferences.edit();
+                sharedPrefEditor.putString(CommonUtils.EMAIL,lUserEmail);
+                sharedPrefEditor.commit();
+                Account lAccout = new Account(lUserEmail, lAccontType);
+                new GoogleSignInAsyncTask().execute(lAccout);
             }
         }
+    }
 
-        protected void onPostExecute() {
-            this.mProgressDialog.dismiss();
+    class GoogleSignInAsyncTask extends AsyncTask<Account, Void, String> {
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            mProgressDialog.setMessage("Synchronizing");
+            mProgressDialog.show();
+        }
+
+        @Override
+        protected String doInBackground(Account... pAccount) {
+
+            /**
+             * getting google Account Access Token Using GoogleAuthUtil
+             */
+            Account lAccount = pAccount[0];
+            String scope = "oauth2:profile email";
+            String lAccessToken = null;
+            try {
+
+                //get the access token for the user from the google
+                mToken = GoogleAuthUtil.getToken(getApplicationContext(), lAccount, scope);
+                Log.d(TAG, "doInBackground: access token " + mToken);
+                FullAuthOauthService authService = FullAuthOauthService.builder()
+                        .authDomain("fullcreative")
+                        .clientId("29354-59055802f154a13d1893f89828768af1")
+                        .clientSecret("mwjGbrCJQO7MfODvw0_4UQA5Qb161bQIi9cwHA6Y")
+                        .build();
+
+                Set<String> scopes = new HashSet<>();
+                scopes.add("awapis.fullaccess");
+
+                try {
+                    OauthAccessToken token;
+                    token = authService.requestAccessTokenForGoogleToken(mToken, scopes, OauthAccessType.OFFLINE);
+
+                    //lAccessToken = token.getAccessToken();
+                    String lRefreshToken = token.getRefreshToken();
+                    Log.i("OAuthLoginTask", "refresh token - " + lRefreshToken);
+                    token = authService.refreshAccessToken(token.getRefreshToken() , OauthExpiryType.LONG);
+                    lAccessToken = token.getAccessToken();
+                    Log.i("OAuthLoginTask", "FullAuth Token - " + lAccessToken);
+                    sharedPrefEditor = sharedPreferences.edit();
+                    sharedPrefEditor.putString(CommonUtils.ACCESS_TOKEN,lAccessToken);
+                    sharedPrefEditor.putString(CommonUtils.REFRESH_TOKEN,lAccessToken);
+                    sharedPrefEditor.commit();
+                } catch (TokenResponseException e) {
+                    e.printStackTrace();
+                } catch (Exception e){
+                    e.printStackTrace();
+                }
+
+            } catch (UserRecoverableAuthException e) {
+                startActivityForResult(e.getIntent(), REQ_CODE);
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (GoogleAuthException e) {
+                e.printStackTrace();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            return lAccessToken;
+        }
+
+        @Override
+        protected void onPostExecute(String pResult) {
+            super.onPostExecute(pResult);
+            mProgressDialog.cancel();
+            Intent lIntent = new Intent(LoginActivity.this, HomeActivity.class);
+            lIntent.putExtra(CommonUtils.ACCESS_TOKEN, pResult);
+            lIntent.putExtra(CommonUtils.EMAIL,getSharedPreferences(CommonUtils.PREF,Context.MODE_PRIVATE).getString(CommonUtils.EMAIL,""));
+            startActivity(lIntent);
+            finish();
+            Log.d(TAG, "onPostExecute: " + pResult);
         }
     }
 }
