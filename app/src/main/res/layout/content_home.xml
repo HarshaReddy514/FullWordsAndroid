@@ -9,13 +9,10 @@
     android:orientation="vertical"
     tools:showIn="@layout/activity_home">
 
-    <ScrollView
+    <ListView
+        android:id="@+id/words_list"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical" />
-    </ScrollView>
+        android:layout_height="match_parent"
+        android:layout_margin="10dp"
+        android:padding="10dp" />
 </LinearLayout>

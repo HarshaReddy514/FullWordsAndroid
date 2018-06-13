@@ -1,31 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/words_list_view"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    tools:context=".SettingsActivity">
+    android:orientation="vertical">
 
     <TextView
-        android:id="@+id/emailTV"
+        android:id="@+id/word_tv"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="5dp"
         android:layout_marginLeft="10dp"
         android:layout_marginRight="10dp"
         android:layout_marginTop="10dp"
-        android:padding="10dp"
-        android:text="Email"
+        android:text="TextView"
         android:textColor="@android:color/background_dark"
-        android:textSize="14sp" />
+        android:textSize="18sp" />
 
     <TextView
-        android:id="@+id/userMailId"
+        android:id="@+id/meaning_tv"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
         android:layout_marginLeft="10dp"
         android:layout_marginRight="10dp"
-        android:paddingLeft="10dp"
-        android:paddingRight="10dp"
-        android:text="TextView" />
+        android:text="TextView"
+        android:textSize="14sp" />
 </LinearLayout>

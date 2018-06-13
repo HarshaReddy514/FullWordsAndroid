@@ -21,17 +21,5 @@ public class SettingsActivity extends AppCompatActivity {
         sharedPreferences = getSharedPreferences(CommonUtils.PREF, Context.MODE_PRIVATE);
         String userMail = sharedPreferences.getString(CommonUtils.EMAIL,"");
         userMailTV.setText(userMail);
-        Button signOutBtn = findViewById(R.id.signOut);
-        signOutBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                sharedPrefEditor = sharedPreferences.edit();
-                sharedPrefEditor.clear();
-                sharedPrefEditor.commit();
-                Intent loginIntent = new Intent(getApplicationContext(), LoginActivity.class);
-                startActivity(loginIntent);
-                finish();
-            }
-        });
     }
 }

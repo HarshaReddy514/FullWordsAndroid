@@ -8,9 +8,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.net.Uri;
 import android.os.AsyncTask;
-import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -27,23 +25,11 @@ import com.google.android.gms.auth.GoogleAuthException;
 import com.google.android.gms.auth.GoogleAuthUtil;
 import com.google.android.gms.auth.UserRecoverableAuthException;
 import com.google.android.gms.common.AccountPicker;
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.api.GoogleApiClient;
-
-import org.json.JSONObject;
-
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.net.URL;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
-
-import javax.net.ssl.HttpsURLConnection;
-
-import helper.HttpConnection;
 
 public class LoginActivity extends AppCompatActivity{
 
@@ -56,6 +42,7 @@ public class LoginActivity extends AppCompatActivity{
     boolean isConnected = false;
     SharedPreferences sharedPreferences;
     SharedPreferences.Editor sharedPrefEditor;
+    Map<String,String> preferencesMap = new HashMap<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,7 +52,6 @@ public class LoginActivity extends AppCompatActivity{
         loginBtn = findViewById(R.id.login);
         sharedPreferences = getSharedPreferences(CommonUtils.PREF,Context.MODE_PRIVATE);
         String name = sharedPreferences.getString(CommonUtils.EMAIL,"");
-        Log.d("EmailPrefLogin",name);
         if(sharedPreferences != null){
             if(name != null && !"".equalsIgnoreCase(name)) {
                 //land to main activity
@@ -76,10 +62,10 @@ public class LoginActivity extends AppCompatActivity{
                 finish();
             }
         }
-        mProgressDialog = new ProgressDialog(this, R.style.Theme_AppCompat_Dialog);
+        mProgressDialog = new ProgressDialog(this);
         mProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         mProgressDialog.setCancelable(false);
-        mProgressDialog.setMessage("Signing in");
+        mProgressDialog.setMessage("Fetching accounts...");
 
         ConnectivityManager connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
@@ -95,11 +81,9 @@ public class LoginActivity extends AppCompatActivity{
                     Intent lGoogleAccountIntent= AccountPicker.newChooseAccountIntent(null, null, new String[]{"com.google"}, false, null, null, null, null);
                     lGoogleAccountIntent.putExtra("overrideTheme", 1);
                     lGoogleAccountIntent.putExtra("overrideCustomTheme", 0);
-
                     startActivityForResult(lGoogleAccountIntent, REQ_CODE);
-                    Log.d(TAG, "googleSignIn: ");
                 } else{
-                    Toast.makeText(getApplicationContext(),"Check your internet connection", Toast.LENGTH_LONG).show();
+                    CommonUtils.showToast(getApplicationContext(),"Check your internet connection");
                 }
             }
         });
@@ -111,47 +95,46 @@ public class LoginActivity extends AppCompatActivity{
 
         if (pRequestCode == REQ_CODE) {
             mProgressDialog.cancel();
-            Log.d(TAG, "onActivityResult:  google signin");
             if (pIntent != null) {
                 String lUserEmail = pIntent.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
-                String lAccontType = pIntent.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);
-                Log.d(TAG, "onActivityResult: email " + lUserEmail + " account type " + lAccontType);
-                sharedPrefEditor = sharedPreferences.edit();
-                sharedPrefEditor.putString(CommonUtils.EMAIL,lUserEmail);
-                sharedPrefEditor.commit();
-                Account lAccout = new Account(lUserEmail, lAccontType);
+                String lAccountType = pIntent.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE);
+                Log.d(TAG, "onActivityResult: email " + lUserEmail + " account type " + lAccountType);
+                preferencesMap.put(CommonUtils.EMAIL,lUserEmail);
+                CommonUtils.savePreferences(sharedPreferences,preferencesMap);
+                Account lAccout = new Account(lUserEmail, lAccountType);
                 new GoogleSignInAsyncTask().execute(lAccout);
             }
         }
     }
 
-    class GoogleSignInAsyncTask extends AsyncTask<Account, Void, String> {
+    class GoogleSignInAsyncTask extends AsyncTask<Account, Void, HashMap> {
 
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
-            mProgressDialog.setMessage("Synchronizing");
+            mProgressDialog.setMessage("Signing In...");
             mProgressDialog.show();
         }
 
         @Override
-        protected String doInBackground(Account... pAccount) {
+        protected HashMap<String, String> doInBackground(Account... pAccount) {
 
             /**
              * getting google Account Access Token Using GoogleAuthUtil
              */
             Account lAccount = pAccount[0];
             String scope = "oauth2:profile email";
-            String lAccessToken = null;
+            String lAccessToken = null, lRefreshToken;
+            HashMap<String,String> response = new HashMap<>();
             try {
 
                 //get the access token for the user from the google
                 mToken = GoogleAuthUtil.getToken(getApplicationContext(), lAccount, scope);
                 Log.d(TAG, "doInBackground: access token " + mToken);
                 FullAuthOauthService authService = FullAuthOauthService.builder()
-                        .authDomain("fullcreative")
-                        .clientId("29354-59055802f154a13d1893f89828768af1")
-                        .clientSecret("mwjGbrCJQO7MfODvw0_4UQA5Qb161bQIi9cwHA6Y")
+                        .authDomain(CommonUtils.FULL_AUTH_DOMAIN)
+                        .clientId(CommonUtils.CLIENT_ID)
+                        .clientSecret(CommonUtils.CLIENT_SECRET)
                         .build();
 
                 Set<String> scopes = new HashSet<>();
@@ -160,18 +143,15 @@ public class LoginActivity extends AppCompatActivity{
                 try {
                     OauthAccessToken token;
                     token = authService.requestAccessTokenForGoogleToken(mToken, scopes, OauthAccessType.OFFLINE);
-
-                    //lAccessToken = token.getAccessToken();
-                    String lRefreshToken = token.getRefreshToken();
-                    Log.i("OAuthLoginTask", "refresh token - " + lRefreshToken);
                     token = authService.refreshAccessToken(token.getRefreshToken() , OauthExpiryType.LONG);
                     lAccessToken = token.getAccessToken();
-                    Log.i("OAuthLoginTask", "FullAuth Token - " + lAccessToken);
-                    sharedPrefEditor = sharedPreferences.edit();
-                    sharedPrefEditor.putString(CommonUtils.ACCESS_TOKEN,lAccessToken);
-                    sharedPrefEditor.putString(CommonUtils.REFRESH_TOKEN,lAccessToken);
-                    sharedPrefEditor.commit();
+                    lRefreshToken = token.getRefreshToken();
+                    preferencesMap.put(CommonUtils.ACCESS_TOKEN,lAccessToken);
+                    preferencesMap.put(CommonUtils.REFRESH_TOKEN,lRefreshToken);
+                    CommonUtils.savePreferences(sharedPreferences,preferencesMap);
+                    response.put("accessToken",lAccessToken);
                 } catch (TokenResponseException e) {
+                    response.put("msg",e.getMessage());
                     e.printStackTrace();
                 } catch (Exception e){
                     e.printStackTrace();
@@ -186,20 +166,24 @@ public class LoginActivity extends AppCompatActivity{
             } catch (Exception e) {
                 e.printStackTrace();
             }
-
-            return lAccessToken;
+            return response;
         }
 
         @Override
-        protected void onPostExecute(String pResult) {
-            super.onPostExecute(pResult);
+        protected void onPostExecute(HashMap resp) {
+            super.onPostExecute(resp);
             mProgressDialog.cancel();
-            Intent lIntent = new Intent(LoginActivity.this, HomeActivity.class);
-            lIntent.putExtra(CommonUtils.ACCESS_TOKEN, pResult);
-            lIntent.putExtra(CommonUtils.EMAIL,getSharedPreferences(CommonUtils.PREF,Context.MODE_PRIVATE).getString(CommonUtils.EMAIL,""));
-            startActivity(lIntent);
-            finish();
-            Log.d(TAG, "onPostExecute: " + pResult);
+            if(!CommonUtils.isNull(resp.get("accessToken")) && !CommonUtils.isEmptyString(resp.get("accessToken").toString())){
+                String token = resp.get("accessToken").toString();
+                Intent lIntent = new Intent(LoginActivity.this, HomeActivity.class);
+                lIntent.putExtra(CommonUtils.ACCESS_TOKEN, token);
+                lIntent.putExtra(CommonUtils.EMAIL,getSharedPreferences(CommonUtils.PREF,Context.MODE_PRIVATE).getString(CommonUtils.EMAIL,""));
+                startActivity(lIntent);
+                finish();
+                Log.d(TAG, "onPostExecute: " + token);
+            } else{
+                CommonUtils.showToast(getApplicationContext(),resp.get("msg").toString());
+            }
         }
     }
 }

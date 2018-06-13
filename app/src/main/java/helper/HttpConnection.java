@@ -1,5 +1,7 @@
 package helper;
 
+import android.util.Log;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -28,17 +30,21 @@ public class HttpConnection {
                 lOutPutStreamWriter.close();
             }
             lHttpURLConnection.connect();
-            BufferedReader lBufferedReader = new BufferedReader(new InputStreamReader(lHttpURLConnection.getInputStream()));
-            StringBuilder lResponseStringSB = new StringBuilder();
-            while (true) {
-                String lResponseData = lBufferedReader.readLine();
-                if (lResponseData != null) {
-                    lResponseStringSB.append(lResponseData);
-                } else {
-                    lHttpURLConnection.disconnect();
-                    return lResponseStringSB.toString();
-                }
+            int respCode = lHttpURLConnection.getResponseCode();
+            BufferedReader lBufferedReader ;
+            if(respCode < 400){
+                lBufferedReader = new BufferedReader(new InputStreamReader(lHttpURLConnection.getInputStream()));
+            } else{
+                lBufferedReader = new BufferedReader(new InputStreamReader(lHttpURLConnection.getErrorStream()));
             }
+            String lResponseString= "";
+            String lRespObj= "";
+            while ((lResponseString = lBufferedReader.readLine()) != null) {
+                lRespObj += lResponseString;
+            }
+            return lRespObj;
+
+
         } catch (MalformedURLException e) {
             e.printStackTrace();
             return null;
