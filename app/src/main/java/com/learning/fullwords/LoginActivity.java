@@ -14,7 +14,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.Toast;
 
 import com.fullauth.api.enums.OauthAccessType;
 import com.fullauth.api.enums.OauthExpiryType;
@@ -30,6 +29,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
+import Utils.CommonUtils;
 
 public class LoginActivity extends AppCompatActivity{
 

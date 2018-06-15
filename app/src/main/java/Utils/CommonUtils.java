@@ -1,4 +1,4 @@
-package com.learning.fullwords;
+package Utils;
 
 import android.content.Context;
 import android.content.SharedPreferences;
